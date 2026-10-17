@@ -13,7 +13,7 @@ import { fetchEvents, fetchEventById } from './services/ticketmaster';
 import './App.css';
 
 import RegisterPage from './pages/RegisterPage';
-
+import { registerEvent, cancelRegistration } from './features/events/registrationsSlice';
 
 import { useDispatch, useSelector } from 'react-redux';
 import { logout } from './features/auth/authSlice';
@@ -321,7 +321,48 @@ function EventDetailsPage() {
   const [event, setEvent] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const dispatch = useDispatch();
 
+  const { user, isAuthenticated } = useSelector(
+    (state) => state.auth
+  );
+
+  const registrations = useSelector(
+    (state) => state.registrations
+  );
+
+  const isRegistered = registrations.some(
+    (registration) =>
+      registration.userEmail === user?.email &&
+      registration.event.id === id
+  );
+
+  function handleRegistration() {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (isRegistered) return;
+
+    dispatch(
+      registerEvent({
+        userEmail: user.email,
+        event,
+      })
+    );
+  }
+
+  function handleCancellation() {
+    if (!user?.email) return;
+
+    dispatch(
+      cancelRegistration({
+        userEmail: user.email,
+        eventId: id,
+      })
+    );
+  }
   useEffect(() => {
     let cancelled = false;
 
@@ -400,6 +441,56 @@ function EventDetailsPage() {
           <strong>Category:</strong>{' '}
           {event.classifications?.[0]?.genre?.name || 'Not specified'}
         </p>
+        
+        <h2>Event information</h2>
+
+        <p>
+          <strong>Venue:</strong> {venue?.name || 'To be announced'}
+        </p>
+
+        <p>
+          <strong>Location:</strong> {location || 'To be announced'}
+        </p>
+
+        <p>
+          <strong>Category:</strong>{' '}
+          {event.classifications?.[0]?.genre?.name || 'Not specified'}
+        </p>
+
+        {/* ADD THE REGISTRATION BLOCK HERE */}
+        <div className="registration-actions">
+          {!isAuthenticated ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleRegistration}
+            >
+              Log in to register
+            </button>
+          ) : isRegistered ? (
+            <>
+              <p className="registration-success" role="status">
+                You are registered for this event!
+              </p>
+
+              <button
+                type="button"
+                className="cancel-button"
+                onClick={handleCancellation}
+              >
+                Cancel registration
+              </button>
+            </>
+          ) : (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleRegistration}
+            >
+              Register for event
+            </button>
+          )}
+        </div>
 
         {event.url && (
           <a
@@ -414,17 +505,166 @@ function EventDetailsPage() {
       </div>
     </main>
   );
+  
 }
+
 
 
 function MyEventsPage() {
+  const { user } = useSelector((state) => state.auth);
+  const registrations = useSelector((state) => state.registrations);
+  const dispatch = useDispatch();
+  const [activeTab, setActiveTab] = useState('upcoming');
+
+  const userRegistrations = registrations.filter(
+    (registration) =>
+      registration.userEmail === user?.email
+  );
+
+  // Use today's local date for event comparisons.
+  const now = new Date();
+  const today = [
+    now.getFullYear(),
+    String(now.getMonth() + 1).padStart(2, '0'),
+    String(now.getDate()).padStart(2, '0'),
+  ].join('-');
+
+  const upcomingEvents = userRegistrations.filter(
+    ({ event }) => {
+      const date = event.dates?.start?.localDate;
+      return !date || date >= today;
+    }
+  );
+
+  const completedEvents = userRegistrations.filter(
+    ({ event }) => {
+      const date = event.dates?.start?.localDate;
+      return date && date < today;
+    }
+  );
+
+  const visibleEvents =
+    activeTab === 'upcoming'
+      ? upcomingEvents
+      : completedEvents;
+
+  function handleCancellation(eventId) {
+    dispatch(
+      cancelRegistration({
+        userEmail: user.email,
+        eventId,
+      })
+    );
+  }
+
   return (
-    <SimplePage
-      title="My Events"
-      description="Your registered events will appear here."
-    />
+    <main className="page my-events-page">
+      <p className="eyebrow">YOUR EVENT COLLECTION</p>
+      <h1>My Events</h1>
+      <p>Keep track of the events you've registered for.</p>
+
+      <div className="event-tabs">
+        <button
+          type="button"
+          className={activeTab === 'upcoming' ? 'active' : ''}
+          onClick={() => setActiveTab('upcoming')}
+        >
+          Upcoming ({upcomingEvents.length})
+        </button>
+
+        <button
+          type="button"
+          className={activeTab === 'completed' ? 'active' : ''}
+          onClick={() => setActiveTab('completed')}
+        >
+          Completed ({completedEvents.length})
+        </button>
+      </div>
+
+      {visibleEvents.length === 0 ? (
+        <div className="status-message">
+          <h2>
+            {activeTab === 'upcoming'
+              ? 'No upcoming events yet'
+              : 'No completed events yet'}
+          </h2>
+
+          <p>
+            {activeTab === 'upcoming'
+              ? 'Explore events and register for something you love.'
+              : 'Your past events will appear here.'}
+          </p>
+
+          <Link to="/" className="details-link">
+            Explore events →
+          </Link>
+        </div>
+      ) : (
+        <div className="event-grid">
+          {visibleEvents.map(({ event }) => {
+            const image =
+              event.images?.find(
+                (item) =>
+                  item.ratio === '16_9' &&
+                  item.width >= 500
+              )?.url || event.images?.[0]?.url;
+
+            const venue =
+              event._embedded?.venues?.[0]?.name ||
+              'Venue to be announced';
+
+            return (
+              <article className="event-card" key={event.id}>
+                <Link
+                  to={`/events/${event.id}`}
+                  className="event-image-link"
+                >
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={event.name}
+                      className="event-image"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="image-placeholder">
+                      EventHub
+                    </div>
+                  )}
+                </Link>
+
+                <div className="event-content">
+                  <p className="event-date">
+                    {formatDate(event.dates?.start?.localDate)}
+                  </p>
+
+                  <h3>
+                    <Link to={`/events/${event.id}`}>
+                      {event.name}
+                    </Link>
+                  </h3>
+
+                  <p className="event-venue">{venue}</p>
+
+                  {activeTab === 'upcoming' && (
+                    <button
+                      type="button"
+                      className="cancel-button"
+                      onClick={() => handleCancellation(event.id)}
+                    >
+                      Cancel registration
+                    </button>
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </main>
   );
 }
+
 
 
 function SimplePage({ title, description }) {
