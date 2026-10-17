@@ -12,6 +12,8 @@ import {
 import { fetchEvents, fetchEventById } from './services/ticketmaster';
 import './App.css';
 
+import RegisterPage from './pages/RegisterPage';
+
 const categories = [
   { label: 'All Events', value: '' },
   { label: 'Music', value: 'Music' },
@@ -413,13 +415,7 @@ function App() {
           }
         />
         <Route
-          path="/register"
-          element={
-            <SimplePage
-              title="Create your account"
-              description="The registration form will be implemented in the authentication step."
-            />
-          }
+          path="/register" element={<RegisterPage />} 
         />
         <Route
           path="/my-events"
