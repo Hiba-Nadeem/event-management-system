@@ -14,6 +14,10 @@ import './App.css';
 
 import RegisterPage from './pages/RegisterPage';
 
+
+import { useDispatch, useSelector } from 'react-redux';
+import { logout } from './features/auth/authSlice';
+
 const categories = [
   { label: 'All Events', value: '' },
   { label: 'Music', value: 'Music' },
@@ -23,25 +27,57 @@ const categories = [
   { label: 'Miscellaneous', value: 'Miscellaneous' },
 ];
 
+
 function Navbar() {
+  const dispatch = useDispatch();
+  const { user, isAuthenticated } = useSelector(
+    (state) => state.auth
+  );
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    dispatch(logout());
+    navigate('/');
+  }
+
   return (
     <nav className="navbar">
       <Link to="/" className="brand">
-        <span className="brand-icon">E</span>
         EventHub
       </Link>
 
       <div className="nav-links">
         <Link to="/">Explore Events</Link>
-        <Link to="/my-events">My Events</Link>
-        <Link to="/login">Login</Link>
-        <Link to="/register" className="register-link">
-          Sign Up
-        </Link>
+
+        {isAuthenticated ? (
+          <>
+            <Link to="/my-events">My Events</Link>
+
+            <span className="nav-user">
+              Hi, {user?.name?.split(' ')[0] || 'there'}!
+            </span>
+
+            <button
+              type="button"
+              className="register-link"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login">Login</Link>
+            <Link to="/register" className="register-link">
+              Sign Up
+            </Link>
+          </>
+        )}
       </div>
     </nav>
   );
 }
+
 
 function formatDate(dateString) {
   if (!dateString) return 'Date to be announced';
@@ -380,6 +416,17 @@ function EventDetailsPage() {
   );
 }
 
+
+function MyEventsPage() {
+  return (
+    <SimplePage
+      title="My Events"
+      description="Your registered events will appear here."
+    />
+  );
+}
+
+
 function SimplePage({ title, description }) {
   return (
     <main className="page">
@@ -399,6 +446,16 @@ function NotFoundPage() {
   );
 }
 
+function ProtectedRoute({ children }) {
+  const isAuthenticated = useSelector(
+    (state) => state.auth.isAuthenticated
+  );
+
+  return isAuthenticated
+    ? children
+    : <Navigate to="/login" replace />;
+}
+
 function App() {
   return (
     <>
@@ -412,10 +469,9 @@ function App() {
         <Route
           path="/my-events"
           element={
-            <SimplePage
-              title="My Events"
-              description="Your registered events will appear here once registration is implemented."
-            />
+            <ProtectedRoute>
+              <MyEventsPage />
+            </ProtectedRoute>
           }
         />
         <Route path="/events/:id" element={<EventDetailsPage />} />
