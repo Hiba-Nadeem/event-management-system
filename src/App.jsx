@@ -510,6 +510,7 @@ function EventDetailsPage() {
 
 
 
+
 function MyEventsPage() {
   const { user } = useSelector((state) => state.auth);
   const registrations = useSelector((state) => state.registrations);
@@ -521,26 +522,34 @@ function MyEventsPage() {
       registration.userEmail === user?.email
   );
 
-  // Use today's local date for event comparisons.
-  const now = new Date();
+  // Today's date in the user's local timezone, used as a fallback.
+  const now = Date.now();
+  const currentDate = new Date();
   const today = [
-    now.getFullYear(),
-    String(now.getMonth() + 1).padStart(2, '0'),
-    String(now.getDate()).padStart(2, '0'),
+    currentDate.getFullYear(),
+    String(currentDate.getMonth() + 1).padStart(2, '0'),
+    String(currentDate.getDate()).padStart(2, '0'),
   ].join('-');
 
-  const upcomingEvents = userRegistrations.filter(
-    ({ event }) => {
-      const date = event.dates?.start?.localDate;
-      return !date || date >= today;
+  // Determine whether an event has already started.
+  function isUpcoming(event) {
+    const start = event.dates?.start;
+
+    if (start?.dateTime) {
+      return new Date(start.dateTime).getTime() >= now;
     }
+
+    // Fallback for events without an exact timestamp.
+    const localDate = start?.localDate;
+    return Boolean(localDate && localDate >= today);
+  }
+
+  const upcomingEvents = userRegistrations.filter(
+    ({ event }) => isUpcoming(event)
   );
 
   const completedEvents = userRegistrations.filter(
-    ({ event }) => {
-      const date = event.dates?.start?.localDate;
-      return date && date < today;
-    }
+    ({ event }) => !isUpcoming(event)
   );
 
   const visibleEvents =
@@ -549,6 +558,8 @@ function MyEventsPage() {
       : completedEvents;
 
   function handleCancellation(eventId) {
+    if (!user?.email) return;
+
     dispatch(
       cancelRegistration({
         userEmail: user.email,
@@ -664,6 +675,7 @@ function MyEventsPage() {
     </main>
   );
 }
+
 
 
 
