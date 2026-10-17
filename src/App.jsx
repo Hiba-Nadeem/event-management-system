@@ -8,7 +8,7 @@ import {
   useParams,
   useNavigate,
 } from 'react-router-dom';
-
+import LoginPageComponent from './pages/LoginPage';
 import { fetchEvents, fetchEventById } from './services/ticketmaster';
 import './App.css';
 
@@ -405,15 +405,7 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<EventsPage />} />
-        <Route
-          path="/login"
-          element={
-            <SimplePage
-              title="Welcome back"
-              description="The login form will be implemented in the authentication step."
-            />
-          }
-        />
+        <Route path="/login" element={<LoginPageComponent />} />
         <Route
           path="/register" element={<RegisterPage />} 
         />
